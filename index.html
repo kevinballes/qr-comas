@@ -26,12 +26,14 @@ button:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 </head>
 <body>
 <main>
-  <h1>KBG - DGR QR</h1>
+  <h1>QR en una línea</h1>
+  <p>Dispara la pistola sobre cada QR. Las comas se ponen solas y la línea nunca termina en coma.</p>
 
   <label for="line">Línea de códigos</label>
   <input id="line" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus>
 
   <div id="status" class="status">Escaneados: 0</div>
+  <label style="display:flex;gap:8px;align-items:center;margin-bottom:16px"><input id="dup" type="checkbox" style="width:auto"> Permitir códigos repetidos</label>
   <div class="row">
     <button id="copy" class="main">Copiar línea</button>
     <button id="undo">Borrar último</button>
@@ -45,6 +47,14 @@ let parts = [];      // lecturas ya confirmadas
 let typing = false;  // true mientras entra una lectura nueva
 
 function say(t, err){ msg.textContent = t; msg.className = 'msg' + (err ? ' err' : ''); }
+
+function beep(){
+  try {
+    const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
+    o.type = 'square'; o.frequency.value = 330; g.gain.value = 0.15;
+    o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + 0.35);
+  } catch {}
+}
 
 function render(){
   line.value = parts.join(',');   // nunca hay coma final
@@ -63,6 +73,12 @@ line.addEventListener('keydown', e => {
     if (!typing) return;
     const raw = line.value.slice(parts.join(',').length + (parts.length ? 1 : 0)).trim();
     if (!/^\d+$/.test(raw)) { say('Código no válido (solo números): "' + raw + '"', true); render(); return; }
+    const pos = parts.indexOf(raw);
+    if (pos !== -1 && !document.getElementById('dup').checked) {
+      render(); beep();
+      say('REPETIDO: ' + raw + ' ya está en la posición ' + (pos + 1) + '. No se ha añadido.', true);
+      return;
+    }
     parts.push(raw);
     render();
     copy();
