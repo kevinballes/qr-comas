@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QR en una línea</title>
+<style>
+:root{--bg:#f5f6f8;--fg:#1b2430;--mut:#667085;--card:#fff;--bd:#d0d5dd;--ok:#12805c;--okbg:#e3f5ee;--ac:#2456d6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14181f;--fg:#e8ecf2;--mut:#9aa4b2;--card:#1d232d;--bd:#3a4452;--ok:#4fd1a1;--okbg:#14352b;--ac:#7aa2ff}}
+:root[data-theme="dark"]{--bg:#14181f;--fg:#e8ecf2;--mut:#9aa4b2;--card:#1d232d;--bd:#3a4452;--ok:#4fd1a1;--okbg:#14352b;--ac:#7aa2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 16px}
+h1{font-size:1.3rem;margin:0 0 4px}
+p{color:var(--mut);margin:0 0 20px}
+.row{display:flex;gap:12px;align-items:end;margin-bottom:16px;flex-wrap:wrap}
+label{display:block;font-size:.85rem;color:var(--mut);margin-bottom:4px}
+input{width:100%;font:inherit;font-size:1.1rem;padding:12px;border:2px solid var(--bd);border-radius:8px;background:var(--card);color:var(--fg)}
+input:focus{outline:none;border-color:var(--ac)}
+#n{width:96px}
+.grow{flex:1;min-width:0}
+#line.done{border-color:var(--ok);background:var(--okbg)}
+.status{margin:10px 0 16px;font-weight:600}
+.status.done{color:var(--ok)}
+button{font:inherit;padding:10px 16px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--fg);cursor:pointer}
+button.main{background:var(--ac);color:#fff;border-color:var(--ac)}
+button:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.msg{color:#c4321c;min-height:1.4em;margin-top:8px;font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>QR en una línea</h1>
+  <p>Indica cuántos vas a escanear y dispara la pistola sobre cada QR. Las comas se ponen solas.</p>
+
+  <div class="row">
+    <div><label for="n">Cantidad</label><input id="n" type="number" min="1" value="10" inputmode="numeric"></div>
+    <div class="grow"><label for="line">Escanea aquí</label><input id="line" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></div>
+  </div>
+
+  <div id="status" class="status">Escaneados: 0 de 10</div>
+  <div class="row">
+    <button id="copy" class="main">Copiar línea</button>
+    <button id="reset">Empezar de nuevo</button>
+  </div>
+  <div id="msg" class="msg" aria-live="polite"></div>
+</main>
+<script>
+const n = document.getElementById('n'), line = document.getElementById('line'),
+      status = document.getElementById('status'), msg = document.getElementById('msg');
+let parts = [];
+
+const total = () => Math.max(1, parseInt(n.value) || 1);
+
+function render(){
+  const t = total(), done = parts.length >= t;
+  line.value = parts.join(',') + (parts.length && !done ? ',' : '');
+  line.classList.toggle('done', done);
+  status.classList.toggle('done', done);
+  status.textContent = done ? 'Completo: ' + t + ' de ' + t : 'Escaneados: ' + parts.length + ' de ' + t;
+  line.readOnly = done;
+}
+
+function accept(){
+  const t = total();
+  if (parts.length >= t) return;
+  // Lo escrito tras la última coma es el escaneo nuevo
+  const raw = line.value.slice(line.value.lastIndexOf(',') + 1).trim();
+  msg.textContent = '';
+  if (!raw) return;
+  if (!/^\d+$/.test(raw)) { msg.textContent = 'Ese código no es solo números: "' + raw + '"'; render(); return; }
+  parts.push(raw);
+  render();
+  if (parts.length >= t) navigator.clipboard?.writeText(line.value).catch(()=>{});
+}
+
+line.addEventListener('keydown', e => {
+  // La pistola suele terminar cada lectura con Enter (o Tab)
+  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); accept(); }
+});
+
+n.addEventListener('input', () => { parts = parts.slice(0, total()); render(); });
+document.getElementById('reset').onclick = () => { parts = []; msg.textContent=''; render(); line.focus(); };
+document.getElementById('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(line.value.replace(/,$/, '')); msg.style.color='var(--ok)'; msg.textContent='Copiado'; }
+  catch { line.select(); msg.textContent='Selecciona y copia con Ctrl+C'; }
+};
+render();
+line.focus();
+</script>
+</body>
+</html>
